@@ -21,6 +21,7 @@ my $interactive = 1;
 my @instArgs = ();
 my @buildArgs = ();
 my @exprs = ();
+my $args = "";
 
 my $shell = $ENV{SHELL} || "/bin/sh";
 my $envCommand = ""; # interactive shell
@@ -28,6 +29,7 @@ my @envExclude = ();
 
 my $myName = $runEnv ? "nix-shell" : "nix-build";
 
+my $exitAfterEnv = '';
 my $inShebang = 0;
 my $script;
 my @savedArgs;
@@ -103,6 +105,12 @@ for (my $n = 0; $n < scalar @ARGV; $n++) {
         push @instArgs, ($arg, $ARGV[$n]);
     }
 
+    elsif ($arg eq "--args") {
+        $n++;
+        die "$0: ‘$arg’ requires an argument\n" unless $n < scalar @ARGV;
+        $args = $ARGV[$n];
+    }
+
     elsif ($arg eq "--arg" || $arg eq "--argstr") {
         die "$0: ‘$arg’ requires two arguments\n" unless $n + 2 < scalar @ARGV;
         push @instArgs, ($arg, $ARGV[$n + 1], $ARGV[$n + 2]);
@@ -164,7 +172,8 @@ for (my $n = 0; $n < scalar @ARGV; $n++) {
     elsif ($arg eq "--command" || $arg eq "--run") {
         $n++;
         die "$0: ‘$arg’ requires an argument\n" unless $n < scalar @ARGV;
-        $envCommand = "$ARGV[$n]\nexit";
+        $envCommand = $ARGV[$n];
+        $exitAfterEnv = "exit";
         $interactive = 0 if $arg eq "--run";
     }
 
@@ -298,7 +307,8 @@ foreach my $expr (@exprs) {
             'unset NIX_INDENT_MAKE; ' .
             'shopt -u nullglob; ' .
             'unset TZ; ' . (defined $ENV{'TZ'} ? "export TZ='${ENV{'TZ'}}'; " : '') .
-            $envCommand);
+            $envCommand . ' ' . $args . ';' .
+            $exitAfterEnv);
         $ENV{BASH_ENV} = $rcfile;
         my @args = ($ENV{NIX_BUILD_SHELL} // "bash");
         push @args, "--rcfile" if $interactive;
